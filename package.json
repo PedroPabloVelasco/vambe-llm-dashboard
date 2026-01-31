@@ -4,11 +4,15 @@
   "type": "module",
   "packageManager": "pnpm@9.12.0+sha512.4abf725084d7bcbafbd728bfc7bee61f2f791f977fd87542b3579dcb23504d170d46337945e4c66485cd12d588a0c0e570ed9c477e7ccdd8507cf05f3f92eaca",
   "scripts": {
+    "dev": "concurrently -n api,web \"pnpm --dir apps/api start:dev\" \"pnpm --dir apps/web dev\"",
     "lint": "eslint .",
     "format": "prettier -w ."
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
