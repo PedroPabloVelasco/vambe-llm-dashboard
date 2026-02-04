@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
-import { IngestModule } from './ingest/ingest.module';
 import { ClassificationModule } from './classification/classification.module';
+import { IngestModule } from './ingest/ingest.module';
 import { LlmModule } from './llm/llm.module';
-import { ClassificationController } from './classification.controller';
-import { HealthController } from './health.controller';
-import { PrismaService } from './prisma.service';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -14,8 +12,7 @@ import { PrismaService } from './prisma.service';
     IngestModule,
     LlmModule,
     ClassificationModule,
+    MetricsModule,
   ],
-  controllers: [HealthController, ClassificationController],
-  providers: [PrismaService],
 })
 export class AppModule {}
