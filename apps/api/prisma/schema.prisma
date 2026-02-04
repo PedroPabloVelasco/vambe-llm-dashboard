@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  phone     String?
+  meetings  Meeting[]
+  createdAt DateTime  @default(now())
+}
+
+model Meeting {
+  id             String          @id @default(cuid())
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id])
+  meetingDate    DateTime
+  seller         String
+  closed         Boolean
+  transcript     String
+  classification Classification?
+  createdAt      DateTime        @default(now())
+  classificationStatus String @default("pending")
+  classificationError  String?
+}
+
+model Classification {
+  id         String   @id @default(cuid())
+  meetingId String   @unique
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+
+  dealStage String
+  intent    String
+  fitScore  Int
+  riskLevel String
+
+  raw       Json
+
+  createdAt DateTime @default(now())
+}
