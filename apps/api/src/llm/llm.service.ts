@@ -23,7 +23,6 @@ export class LlmService {
   }
 
   private async withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    // No aborta la request (SDK), pero evita colgar el worker.
     return Promise.race([
       promise,
       sleep(ms).then(() => {

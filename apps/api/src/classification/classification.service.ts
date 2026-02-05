@@ -31,6 +31,10 @@ export class ClassificationService {
   private readonly logger = new Logger(ClassificationService.name);
   private readonly prisma: PrismaService;
   private readonly llm: LlmService;
+  private lastRunSummary: {
+    processed: number;
+    durationMs: number;
+  } | null = null;
 
   constructor(prisma: PrismaService, llm: LlmService) {
     this.prisma = prisma;
@@ -140,6 +144,11 @@ export class ClassificationService {
 
     await Promise.all(workers);
 
+    this.lastRunSummary = {
+      processed: ok,
+      durationMs: Date.now() - startedAt,
+    };
+
     return {
       processed: meetings.length,
       ok,
@@ -186,6 +195,51 @@ export class ClassificationService {
         },
       },
     });
+  }
+
+  async status() {
+    const [
+      pending,
+      processing,
+      done,
+      error,
+      totalMeetings,
+      totalClassifications,
+    ] = await Promise.all([
+      this.prisma.meeting.count({
+        where: { classificationStatus: 'pending' },
+      }),
+      this.prisma.meeting.count({
+        where: { classificationStatus: 'processing' },
+      }),
+      this.prisma.meeting.count({
+        where: { classificationStatus: 'done' },
+      }),
+      this.prisma.meeting.count({
+        where: { classificationStatus: 'error' },
+      }),
+      this.prisma.meeting.count(),
+      this.prisma.classification.count(),
+    ]);
+
+    return {
+      pending,
+      processing,
+      done,
+      error,
+      totalMeetings,
+      totalClassifications,
+      lastRun: this.lastRunSummary
+        ? {
+            processed: this.lastRunSummary.processed,
+            durationMs: this.lastRunSummary.durationMs,
+            avgDurationMsPerItem:
+              this.lastRunSummary.processed > 0
+                ? this.lastRunSummary.durationMs / this.lastRunSummary.processed
+                : null,
+          }
+        : null,
+    };
   }
 
   async getByMeetingId(meetingId: string) {

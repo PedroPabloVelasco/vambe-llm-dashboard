@@ -7,6 +7,7 @@ import { ClassificationModule } from './classification/classification.module';
 import { IngestModule } from './ingest/ingest.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { MeetingsModule } from './meetings/meetings.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { MeetingsModule } from './meetings/meetings.module';
     ClassificationModule,
     MetricsModule,
     MeetingsModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [PrismaService],

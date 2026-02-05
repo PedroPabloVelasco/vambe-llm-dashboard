@@ -8,5 +8,6 @@ import { IngestService } from './ingest.service';
 @Module({
   controllers: [IngestController],
   providers: [IngestService, PrismaService],
+  exports: [IngestService],
 })
 export class IngestModule {}

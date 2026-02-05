@@ -1,47 +1,48 @@
-'use client';
+import Link from 'next/link';
 
-import { useEffect, useState } from 'react';
+import { api } from '../lib/api';
 
-type HealthResponse = {
-  status: string;
-};
+import DashboardClient from './ui/DashboardClient';
 
-export default function Home() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-    if (!baseUrl) {
-      setError('API base URL no configurada');
-      return;
-    }
-
-    fetch(`${baseUrl}/health`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error();
-        }
-        return response.json();
-      })
-      .then((data: HealthResponse) => {
-        setHealth(data);
-      })
-      .catch(() => {
-        setError('No se pudo conectar con la API');
-      });
-  }, []);
+export default async function Page() {
+  const [summary, dealStage, intentVsFit, painPoints, bySeller] =
+    await Promise.all([
+      api.metricsSummary(),
+      api.dealStageVsClose(),
+      api.intentVsFit(),
+      api.painPoints({ top: 10, normalize: true }),
+      api.bySeller(),
+    ]);
 
   return (
-    <main style={{ padding: '2rem' }}>
-      <h1>Panel de métricas</h1>
+    <main className="app-main">
+      <div className="page-shell">
+        <header className="page-header">
+          <div>
+            <p className="section-eyebrow">Visión general</p>
+            <h1 className="page-title">Vambe LLM Dashboard</h1>
+            <p
+              className="text-subtle"
+              style={{ marginTop: '1rem', maxWidth: 520 }}
+            >
+              Visualiza el pulso comercial de tu equipo con métricas
+              accionables, filtros intuitivos y gráficas que resaltan las
+              oportunidades y riesgos detectados por el modelo.
+            </p>
+          </div>
+          <div className="header-actions">
+            <Link href="/classification" className="btn btn-ghost">
+              Ver clasificaciones
+            </Link>
+          </div>
+        </header>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      {!error && !health && <p>Cargando estado de la API...</p>}
-
-      {health && <p>Estado API: {health.status}</p>}
+        <section style={{ marginTop: '2.5rem' }}>
+          <DashboardClient
+            initial={{ summary, dealStage, intentVsFit, painPoints, bySeller }}
+          />
+        </section>
+      </div>
     </main>
   );
 }

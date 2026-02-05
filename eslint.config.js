@@ -36,6 +36,15 @@ export default [
       import: importPlugin,
     },
     rules: {
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
       'import/no-duplicates': 'error',
       'import/order': ['error', { 'newlines-between': 'always' }],
     },

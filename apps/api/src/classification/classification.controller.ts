@@ -30,6 +30,11 @@ export class ClassificationController {
     return this.service.listLatest({ take: take ?? 10, cursor });
   }
 
+  @Get('status')
+  status() {
+    return this.service.status();
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.service.getById(id);

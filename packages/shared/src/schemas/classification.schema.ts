@@ -61,7 +61,6 @@ export const ClassificationResultSchema = z.object({
 
   summary: z.string().min(1).max(400),
 
-  // Inferred from transcript
   industry: z.string().min(1).max(80).nullable(),
   company_context: z.string().min(1).max(240).nullable(),
 

@@ -183,17 +183,26 @@ export class MetricsService {
     `;
 
     return {
-      items: rows.map((r) => ({
-        seller: r.seller,
-        meetings: r.meetings,
-        closed: r.closed,
-        classified: r.classified,
-        closeRatePct:
-          r.meetings === 0
-            ? 0
-            : Number(((r.closed / r.meetings) * 100).toFixed(1)),
-        avgFitScore: r.avgFitScore ? Number(r.avgFitScore.toFixed(1)) : 0,
-      })),
+      items: rows.map((r) => {
+        const meetings = Number(r.meetings ?? 0);
+        const closed = Number(r.closed ?? 0);
+        const classified = Number(r.classified ?? 0);
+        const avgFitScoreRaw =
+          r.avgFitScore === null || r.avgFitScore === undefined
+            ? null
+            : Number(r.avgFitScore);
+
+        return {
+          seller: r.seller,
+          meetings,
+          closed,
+          classified,
+          closeRatePct:
+            meetings === 0 ? 0 : Number(((closed / meetings) * 100).toFixed(1)),
+          avgFitScore:
+            avgFitScoreRaw === null ? 0 : Number(avgFitScoreRaw.toFixed(1)),
+        };
+      }),
     };
   }
 }
