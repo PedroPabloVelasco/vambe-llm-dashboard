@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 
 import { ClassificationService } from './classification.service';
 
@@ -16,7 +16,18 @@ export class ClassificationController {
   }
 
   @Get()
-  list() {
-    return this.service.listLatest(10);
+  list(@Query('take') take?: string) {
+    const n = take ? Number(take) : 20;
+    return this.service.listLatest(Number.isFinite(n) ? n : 20);
+  }
+
+  @Get(':id')
+  getById(@Param('id') id: string) {
+    return this.service.getById(id);
+  }
+
+  @Get('by-meeting/:meetingId')
+  getByMeetingId(@Param('meetingId') meetingId: string) {
+    return this.service.getByMeetingId(meetingId);
   }
 }

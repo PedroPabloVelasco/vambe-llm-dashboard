@@ -5,54 +5,6 @@ import { ClassificationResultSchema } from '@vambe/shared';
 import { buildClassificationPrompt } from './llm.prompt';
 import { normalizeClassification } from './llm.normalize';
 
-type JsonParseResult =
-  | { ok: true; value: unknown }
-  | { ok: false; reason: string; sample: string };
-
-const safeSample = (text: string, max = 300) =>
-  text.replace(/\s+/g, ' ').trim().slice(0, max);
-
-const stripCodeFences = (text: string) => {
-  const trimmed = text.trim();
-  if (trimmed.startsWith('```')) {
-    return trimmed.replace(/^```[a-zA-Z]*\s*/g, '').replace(/```$/g, '').trim();
-  }
-  return trimmed;
-};
-
-const extractFirstJsonObject = (text: string): JsonParseResult => {
-  const cleaned = stripCodeFences(text);
-
-  try {
-    return { ok: true, value: JSON.parse(cleaned) };
-  } catch {
-    // continue
-  }
-
-  const first = cleaned.indexOf('{');
-  const last = cleaned.lastIndexOf('}');
-
-  if (first === -1 || last === -1 || last <= first) {
-    return {
-      ok: false,
-      reason: 'No se encontró un objeto JSON en la respuesta',
-      sample: safeSample(cleaned),
-    };
-  }
-
-  const candidate = cleaned.slice(first, last + 1);
-
-  try {
-    return { ok: true, value: JSON.parse(candidate) };
-  } catch {
-    return {
-      ok: false,
-      reason: 'La respuesta contenía un objeto, pero no fue JSON válido',
-      sample: safeSample(candidate),
-    };
-  }
-};
-
 @Injectable()
 export class LlmService {
   private readonly client: OpenAI;
@@ -77,20 +29,32 @@ export class LlmService {
         {
           role: 'system',
           content:
-            'Responde SOLO con un objeto JSON válido. Sin markdown, sin backticks, sin texto extra.',
+            'Responde SOLO con un objeto JSON válido. No incluyas texto adicional.',
         },
         { role: 'user', content: prompt },
       ],
     });
 
-    const text = completion.choices[0]?.message?.content ?? '';
 
-    const parsed = extractFirstJsonObject(text);
-    if (!parsed.ok) {
-      throw new Error(`${parsed.reason}. Sample: ${parsed.sample}`);
+
+    const text = completion.choices[0]?.message?.content ?? '{}';
+
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new Error('La respuesta del modelo no fue JSON válido');
     }
 
-    const normalized = normalizeClassification(parsed.value);
-    return ClassificationResultSchema.parse(normalized);
+    const normalized = normalizeClassification(json);
+
+    const parsed = ClassificationResultSchema.safeParse(normalized);
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      throw new Error(
+        `Respuesta inválida: ${firstIssue.path.join('.')} → ${firstIssue.message}`,
+      );
+    }
+    return parsed.data;
   }
 }
