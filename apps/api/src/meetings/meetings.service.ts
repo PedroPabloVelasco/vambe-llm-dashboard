@@ -26,7 +26,10 @@ export class MeetingsService {
 
   async list(params: ListMeetingsParams) {
     const take = Math.max(1, Math.min(100, Number(params.take ?? 10)));
-    const status = params.status && isMeetingStatus(params.status) ? params.status : undefined;
+    const status =
+      params.status && isMeetingStatus(params.status)
+        ? params.status
+        : undefined;
 
     const items = await this.prisma.meeting.findMany({
       take: take + 1,
@@ -38,7 +41,7 @@ export class MeetingsService {
 
     const hasMore = items.length > take;
     const sliced = hasMore ? items.slice(0, take) : items;
-    const nextCursor = hasMore ? sliced[sliced.length - 1]?.id ?? null : null;
+    const nextCursor = hasMore ? (sliced[sliced.length - 1]?.id ?? null) : null;
 
     return { items: sliced, nextCursor };
   }

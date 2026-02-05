@@ -32,7 +32,12 @@ const BantAuthority = z.enum([
   'not_present',
   'unknown',
 ]);
-const BantTimeline = z.enum(['this_month', 'this_quarter', 'this_year', 'unknown']);
+const BantTimeline = z.enum([
+  'this_month',
+  'this_quarter',
+  'this_year',
+  'unknown',
+]);
 const BantNeed = z.enum(['clear', 'vague', 'none', 'unknown']);
 
 const NextStepSchema = z.object({
@@ -71,10 +76,14 @@ export const ClassificationResultSchema = z.object({
 
   use_cases: z.array(z.string().min(1).max(80)).max(8).default([]),
   pain_points: z.array(z.string().min(1).max(120)).max(10).default([]),
-  priority_pain: z.enum(['high', 'medium', 'low', 'unknown']).default('unknown'),
+  priority_pain: z
+    .enum(['high', 'medium', 'low', 'unknown'])
+    .default('unknown'),
 
   objections: z.array(ObjectionSchema).max(8).default([]),
-  objection_severity: z.enum(['high', 'medium', 'low', 'unknown']).default('unknown'),
+  objection_severity: z
+    .enum(['high', 'medium', 'low', 'unknown'])
+    .default('unknown'),
 
   competitors_mentioned: z.array(z.string().min(1).max(80)).max(6).default([]),
   status_quo: z.enum(['true', 'false', 'unknown']).default('unknown'),

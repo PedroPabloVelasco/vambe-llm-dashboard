@@ -172,7 +172,7 @@ export class ClassificationService {
 
     const hasMore = items.length > take;
     const sliced = hasMore ? items.slice(0, take) : items;
-    const nextCursor = hasMore ? sliced[sliced.length - 1]?.id ?? null : null;
+    const nextCursor = hasMore ? (sliced[sliced.length - 1]?.id ?? null) : null;
 
     return { items: sliced, nextCursor };
   }

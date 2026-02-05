@@ -67,7 +67,7 @@ export class MetricsService {
   async getDealStageVsCloseRate(filter: DateFilter = {}) {
     const meetingWhere = this.buildDateFilter(filter);
 
-   const rows = await this.prisma.classification.findMany({
+    const rows = await this.prisma.classification.findMany({
       where: meetingWhere,
       select: {
         dealStage: true,
@@ -82,7 +82,11 @@ export class MetricsService {
 
     for (const r of rows) {
       const key = r.dealStage;
-      const current = byStage.get(key) ?? { dealStage: key, total: 0, closed: 0 };
+      const current = byStage.get(key) ?? {
+        dealStage: key,
+        total: 0,
+        closed: 0,
+      };
       current.total += 1;
       if (r.meeting.closed) current.closed += 1;
       byStage.set(key, current);
@@ -94,7 +98,8 @@ export class MetricsService {
         dealStage: r.dealStage,
         total: r.total,
         closed: r.closed,
-        closeRatePct: r.total === 0 ? 0 : Math.round((r.closed / r.total) * 100),
+        closeRatePct:
+          r.total === 0 ? 0 : Math.round((r.closed / r.total) * 100),
       }));
 
     return { items };

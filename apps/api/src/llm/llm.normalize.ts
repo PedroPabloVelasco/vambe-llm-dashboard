@@ -134,7 +134,8 @@ const normalizeObjections = (value: unknown) => {
     'other',
   ] as const;
 
-  const result: Array<{ type: (typeof allowed)[number]; evidence: string }> = [];
+  const result: Array<{ type: (typeof allowed)[number]; evidence: string }> =
+    [];
 
   for (const entry of value) {
     const obj = asObject(entry);
@@ -265,7 +266,9 @@ export const normalizeClassification = (input: unknown) => {
     ),
   };
 
-  const interaction_volume = normalizeInteractionVolume(source.interaction_volume);
+  const interaction_volume = normalizeInteractionVolume(
+    source.interaction_volume,
+  );
   const objections = normalizeObjections(source.objections);
   const next_steps = normalizeNextSteps(source.next_steps);
   const signals = normalizeSignals(source.signals);

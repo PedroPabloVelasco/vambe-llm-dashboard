@@ -1,11 +1,13 @@
 # Vambe LLM Dashboard – API (NestJS + Prisma)
 
 ## Requisitos
+
 - Node 20+ (ideal 22)
 - pnpm
 - SQLite (incluida por Prisma)
 
 ## Variables de entorno
+
 Crea `apps/api/.env`:
 
 ```env
@@ -20,3 +22,4 @@ OPENAI_MODEL=gpt-4.1-mini
 # opcional
 LLM_CONCURRENCY=3
 LLM_TIMEOUT_MS=20000
+```

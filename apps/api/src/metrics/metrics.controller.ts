@@ -1,4 +1,10 @@
-import { Controller, Get, ParseBoolPipe, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  ParseBoolPipe,
+  ParseIntPipe,
+  Query,
+} from '@nestjs/common';
 
 import { MetricsService } from './metrics.service';
 
@@ -28,7 +34,8 @@ export class MetricsController {
   @Get('pain-points')
   painPoints(
     @Query('top', new ParseIntPipe({ optional: true })) top?: number,
-    @Query('normalize', new ParseBoolPipe({ optional: true })) normalize?: boolean,
+    @Query('normalize', new ParseBoolPipe({ optional: true }))
+    normalize?: boolean,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
