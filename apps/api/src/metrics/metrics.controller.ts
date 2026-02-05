@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, ParseBoolPipe, ParseIntPipe, Query } from '@nestjs/common';
 
 import { MetricsService } from './metrics.service';
 
@@ -11,25 +11,33 @@ export class MetricsController {
   }
 
   @Get('summary')
-  summary() {
-    return this.metrics.getSummary();
+  summary(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.metrics.getSummary({ from, to });
   }
 
   @Get('deal-stage')
-  dealStage() {
-    return this.metrics.getDealStageCloseRate();
+  dealStageVsCloseRate(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.metrics.getDealStageVsCloseRate({ from, to });
   }
 
   @Get('intent-vs-fit')
-  intentVsFit() {
-    return this.metrics.getIntentVsFit();
+  intentVsFit(@Query('from') from?: string, @Query('to') to?: string) {
+    return this.metrics.getIntentVsFitScore({ from, to });
   }
 
   @Get('pain-points')
-  painPoints(@Query('top') top?: string) {
-    const n = top ? Number(top) : 10;
-    const safeTop = Number.isFinite(n) ? Math.max(1, Math.min(30, n)) : 10;
-    return this.metrics.getPainPoints(safeTop);
+  painPoints(
+    @Query('top', new ParseIntPipe({ optional: true })) top?: number,
+    @Query('normalize', new ParseBoolPipe({ optional: true })) normalize?: boolean,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.metrics.getTopPainPoints({
+      top: top ?? 10,
+      normalize: normalize ?? true,
+      from,
+      to,
+    });
   }
 
   @Get('by-seller')

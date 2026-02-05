@@ -1,31 +1,34 @@
-import { setTimeout } from 'timers';
+import { setTimeout as sleep } from 'timers/promises';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { PrismaService } from '../prisma.service';
 import { LlmService } from '../llm/llm.service';
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 const withRetry = async <T>(
   fn: () => Promise<T>,
   attempts = 2,
-  backoffMs = 500,
+  backoffMs = 400,
 ): Promise<T> => {
   let lastErr: unknown;
+
   for (let i = 0; i < attempts; i += 1) {
     try {
       return await fn();
     } catch (e) {
       lastErr = e;
-      if (i < attempts - 1) await sleep(backoffMs * (i + 1));
+      if (i < attempts - 1) {
+        await sleep(backoffMs * (i + 1));
+      }
     }
   }
+
   throw lastErr instanceof Error ? lastErr : new Error('Error LLM');
 };
 
 @Injectable()
 export class ClassificationService {
+  private readonly logger = new Logger(ClassificationService.name);
   private readonly prisma: PrismaService;
   private readonly llm: LlmService;
 
@@ -34,39 +37,42 @@ export class ClassificationService {
     this.llm = llm;
   }
 
-  private async claimMeeting(meetingId: string): Promise<boolean> {
-    const res = await this.prisma.meeting.updateMany({
-      where: { id: meetingId, classificationStatus: 'pending' },
+  private async claimBatch(limit: number) {
+    const pending = await this.prisma.meeting.findMany({
+      where: { classificationStatus: 'pending' },
+      take: limit,
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (pending.length === 0) return [];
+
+    const ids = pending.map((m) => m.id);
+
+    await this.prisma.meeting.updateMany({
+      where: { id: { in: ids }, classificationStatus: 'pending' },
       data: { classificationStatus: 'processing', classificationError: null },
     });
 
-    return res.count === 1;
+    return this.prisma.meeting.findMany({
+      where: { id: { in: ids }, classificationStatus: 'processing' },
+      take: limit,
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async runBatch(limit = 10) {
     const startedAt = Date.now();
-
-    const meetings = await this.prisma.meeting.findMany({
-      where: { classificationStatus: 'pending' },
-      take: limit,
-      select: { id: true, transcript: true },
-      orderBy: { createdAt: 'asc' },
-    });
-
     const concurrency = Math.max(1, Number(process.env.LLM_CONCURRENCY ?? '3'));
+
+    const meetings = await this.claimBatch(limit);
 
     let ok = 0;
     let errors = 0;
-    let skipped = 0;
-
     const failures: Array<{ meetingId: string; reason: string }> = [];
 
     const processOne = async (meeting: (typeof meetings)[number]) => {
-      const claimed = await this.claimMeeting(meeting.id);
-      if (!claimed) {
-        skipped += 1;
-        return;
-      }
+      const t0 = Date.now();
 
       try {
         const result = await withRetry(
@@ -100,6 +106,9 @@ export class ClassificationService {
         });
 
         ok += 1;
+        this.logger.log(
+          `classified meeting=${meeting.id} ok durationMs=${Date.now() - t0}`,
+        );
       } catch (e) {
         const reason = e instanceof Error ? e.message : 'Error desconocido';
 
@@ -113,6 +122,10 @@ export class ClassificationService {
 
         failures.push({ meetingId: meeting.id, reason });
         errors += 1;
+
+        this.logger.warn(
+          `classified meeting=${meeting.id} error durationMs=${Date.now() - t0} reason=${reason}`,
+        );
       }
     };
 
@@ -131,16 +144,18 @@ export class ClassificationService {
       processed: meetings.length,
       ok,
       errors,
-      skipped,
+      failures,
       concurrency,
       durationMs: Date.now() - startedAt,
-      failures,
     };
   }
 
-  async listLatest(take = 20) {
-    return this.prisma.classification.findMany({
-      take,
+  async listLatest(params: { take: number; cursor?: string }) {
+    const take = Math.max(1, Math.min(100, params.take));
+
+    const items = await this.prisma.classification.findMany({
+      take: take + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
       orderBy: { createdAt: 'desc' },
       include: {
         meeting: {
@@ -154,6 +169,12 @@ export class ClassificationService {
         },
       },
     });
+
+    const hasMore = items.length > take;
+    const sliced = hasMore ? items.slice(0, take) : items;
+    const nextCursor = hasMore ? sliced[sliced.length - 1]?.id ?? null : null;
+
+    return { items: sliced, nextCursor };
   }
 
   async getById(id: string) {
@@ -161,15 +182,7 @@ export class ClassificationService {
       where: { id },
       include: {
         meeting: {
-          select: {
-            id: true,
-            seller: true,
-            closed: true,
-            meetingDate: true,
-            classificationStatus: true,
-            classificationError: true,
-            customer: { select: { name: true, email: true, phone: true } },
-          },
+          include: { customer: true },
         },
       },
     });
@@ -180,15 +193,7 @@ export class ClassificationService {
       where: { meetingId },
       include: {
         meeting: {
-          select: {
-            id: true,
-            seller: true,
-            closed: true,
-            meetingDate: true,
-            classificationStatus: true,
-            classificationError: true,
-            customer: { select: { name: true, email: true, phone: true } },
-          },
+          include: { customer: true },
         },
       },
     });

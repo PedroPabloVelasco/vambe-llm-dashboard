@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 
 import { ClassificationService } from './classification.service';
 
@@ -11,23 +11,25 @@ export class ClassificationController {
   }
 
   @Post('run')
-  run(@Body() body: { limit?: number }) {
-    return this.service.runBatch(body.limit ?? 10);
+  run(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
+    return this.service.runBatch(limit ?? 10);
   }
 
   @Get()
-  list(@Query('take') take?: string) {
-    const n = take ? Number(take) : 20;
-    return this.service.listLatest(Number.isFinite(n) ? n : 20);
+  list(
+    @Query('take', new ParseIntPipe({ optional: true })) take?: number,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.service.listLatest({ take: take ?? 10, cursor });
   }
 
   @Get(':id')
-  getById(@Param('id') id: string) {
+  get(@Param('id') id: string) {
     return this.service.getById(id);
   }
 
   @Get('by-meeting/:meetingId')
-  getByMeetingId(@Param('meetingId') meetingId: string) {
+  getByMeeting(@Param('meetingId') meetingId: string) {
     return this.service.getByMeetingId(meetingId);
   }
 }

@@ -2,19 +2,22 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../prisma.service';
 
-type DistItem = { key: string; count: number };
+type DateFilter = {
+  from?: string;
+  to?: string;
+};
 
-const pct = (num: number, den: number) =>
-  den === 0 ? 0 : Math.round((num / den) * 1000) / 10;
+const asDateRange = ({ from, to }: DateFilter) => {
+  const gte = from ? new Date(from) : undefined;
+  const lte = to ? new Date(to) : undefined;
 
-const toKeyCounts = (items: Array<{ key: string; count: number }>): DistItem[] =>
-  items
-    .map((x) => ({ key: x.key, count: x.count }))
-    .sort((a, b) => b.count - a.count);
+  if (!gte && !lte) return undefined;
 
-const safeArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-const safeString = (v: unknown): string | null =>
-  typeof v === 'string' && v.trim() ? v.trim() : null;
+  return {
+    ...(gte ? { gte } : {}),
+    ...(lte ? { lte } : {}),
+  };
+};
 
 @Injectable()
 export class MetricsService {
@@ -24,179 +27,168 @@ export class MetricsService {
     this.prisma = prisma;
   }
 
-  async getSummary() {
-    const [meetingsTotal, meetingsClosed] = await Promise.all([
-      this.prisma.meeting.count(),
-      this.prisma.meeting.count({ where: { closed: true } }),
-    ]);
+  private buildDateFilter(filter: DateFilter) {
+    const range = asDateRange(filter);
+    if (!range) return undefined;
+
+    return { createdAt: range };
+  }
+
+  async getSummary(filter: DateFilter = {}) {
+    const where = this.buildDateFilter(filter);
+
+    const totalMeetings = await this.prisma.meeting.count({ where });
+    const closedMeetings = await this.prisma.meeting.count({
+      where: { ...where, closed: true },
+    });
 
     const avgFit = await this.prisma.classification.aggregate({
+      where,
       _avg: { fitScore: true },
     });
 
-    const [dealStage, intent, riskLevel] = await Promise.all([
-      this.prisma.classification.groupBy({
-        by: ['dealStage'],
-        _count: { dealStage: true },
-      }),
-      this.prisma.classification.groupBy({
-        by: ['intent'],
-        _count: { intent: true },
-      }),
-      this.prisma.classification.groupBy({
-        by: ['riskLevel'],
-        _count: { riskLevel: true },
-      }),
-    ]);
-
     return {
       totals: {
-        meetings: meetingsTotal,
-        closed: meetingsClosed,
-        closeRatePct: pct(meetingsClosed, meetingsTotal),
+        meetings: totalMeetings,
+        closed: closedMeetings,
+        closeRatePct:
+          totalMeetings === 0
+            ? 0
+            : Math.round((closedMeetings / totalMeetings) * 100),
       },
       classification: {
         avgFitScore: avgFit._avg.fitScore
-          ? Math.round(avgFit._avg.fitScore * 10) / 10
+          ? Number(avgFit._avg.fitScore.toFixed(1))
           : 0,
-      },
-      distributions: {
-        dealStage: toKeyCounts(
-          dealStage.map((x) => ({
-            key: x.dealStage,
-            count: x._count.dealStage,
-          })),
-        ),
-        intent: toKeyCounts(
-          intent.map((x) => ({ key: x.intent, count: x._count.intent })),
-        ),
-        riskLevel: toKeyCounts(
-          riskLevel.map((x) => ({
-            key: x.riskLevel,
-            count: x._count.riskLevel,
-          })),
-        ),
       },
     };
   }
 
-  async getDealStageCloseRate() {
-    const rows = await this.prisma.classification.findMany({
+  async getDealStageVsCloseRate(filter: DateFilter = {}) {
+    const meetingWhere = this.buildDateFilter(filter);
+
+   const rows = await this.prisma.classification.findMany({
+      where: meetingWhere,
       select: {
         dealStage: true,
         meeting: { select: { closed: true } },
       },
     });
 
-    const map = new Map<string, { total: number; closed: number }>();
+    const byStage = new Map<
+      string,
+      { dealStage: string; total: number; closed: number }
+    >();
+
     for (const r of rows) {
       const key = r.dealStage;
-      const cur = map.get(key) ?? { total: 0, closed: 0 };
-      cur.total += 1;
-      if (r.meeting.closed) cur.closed += 1;
-      map.set(key, cur);
+      const current = byStage.get(key) ?? { dealStage: key, total: 0, closed: 0 };
+      current.total += 1;
+      if (r.meeting.closed) current.closed += 1;
+      byStage.set(key, current);
     }
 
-    const items = Array.from(map.entries())
-      .map(([dealStage, v]) => ({
-        dealStage,
-        total: v.total,
-        closed: v.closed,
-        closeRatePct: pct(v.closed, v.total),
-      }))
-      .sort((a, b) => b.total - a.total);
+    const items = [...byStage.values()]
+      .sort((a, b) => b.total - a.total)
+      .map((r) => ({
+        dealStage: r.dealStage,
+        total: r.total,
+        closed: r.closed,
+        closeRatePct: r.total === 0 ? 0 : Math.round((r.closed / r.total) * 100),
+      }));
 
     return { items };
   }
 
-  async getIntentVsFit() {
-    const groups = await this.prisma.classification.groupBy({
+  async getIntentVsFitScore(filter: DateFilter = {}) {
+    const where = this.buildDateFilter(filter);
+
+    const rows = await this.prisma.classification.groupBy({
       by: ['intent'],
-      _count: { intent: true },
+      where,
+      _count: true,
       _avg: { fitScore: true },
     });
 
     return {
-      items: groups
-        .map((g) => ({
-          intent: g.intent,
-          count: g._count.intent,
-          avgFitScore: g._avg.fitScore ? Math.round(g._avg.fitScore * 10) / 10 : 0,
-        }))
-        .sort((a, b) => b.count - a.count),
+      items: rows.map((r) => ({
+        intent: r.intent,
+        count: r._count,
+        avgFitScore: r._avg.fitScore ? Number(r._avg.fitScore.toFixed(1)) : 0,
+      })),
     };
   }
 
-  async getPainPoints(top = 10) {
+  async getTopPainPoints(params: {
+    top: number;
+    normalize: boolean;
+    from?: string;
+    to?: string;
+  }) {
+    const { top, normalize, ...filter } = params;
+    const where = this.buildDateFilter(filter);
+
     const rows = await this.prisma.classification.findMany({
+      where,
       select: { raw: true },
     });
 
     const counter = new Map<string, number>();
 
-    for (const r of rows) {
-      const raw = r.raw as unknown;
-      const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-      const painPoints = safeArray(obj.pain_points);
+    for (const row of rows) {
+      const painPoints = Array.isArray((row.raw as any)?.pain_points)
+        ? (row.raw as any).pain_points
+        : [];
 
-      for (const p of painPoints) {
-        const s = safeString(p);
-        if (!s) continue;
-        counter.set(s, (counter.get(s) ?? 0) + 1);
+      for (let p of painPoints) {
+        if (typeof p !== 'string') continue;
+        p = normalize ? p.trim().toLowerCase() : p.trim();
+        if (!p) continue;
+        counter.set(p, (counter.get(p) ?? 0) + 1);
       }
     }
 
-    const items = Array.from(counter.entries())
-      .map(([painPoint, count]) => ({ painPoint, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, top);
-
-    return { items };
+    return {
+      items: [...counter.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, top)
+        .map(([painPoint, count]) => ({ painPoint, count })),
+    };
   }
 
   async getBySeller() {
-    const meetings = await this.prisma.meeting.findMany({
-      select: {
-        seller: true,
-        closed: true,
-        classificationStatus: true,
-        classification: { select: { fitScore: true } },
-      },
-    });
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        seller: string;
+        meetings: number;
+        closed: number;
+        classified: number;
+        avgFitScore: number | null;
+      }>
+    >`
+      SELECT
+        m.seller AS seller,
+        COUNT(m.id) AS meetings,
+        SUM(CASE WHEN m.closed = 1 THEN 1 ELSE 0 END) AS closed,
+        COUNT(c.id) AS classified,
+        AVG(c.fitScore) AS avgFitScore
+      FROM Meeting m
+      LEFT JOIN Classification c ON c.meetingId = m.id
+      GROUP BY m.seller
+    `;
 
-    const map = new Map<
-      string,
-      { meetings: number; closed: number; classified: number; fitSum: number; fitCount: number }
-    >();
-
-    for (const m of meetings) {
-      const key = m.seller || 'Unknown';
-      const cur =
-        map.get(key) ?? { meetings: 0, closed: 0, classified: 0, fitSum: 0, fitCount: 0 };
-
-      cur.meetings += 1;
-      if (m.closed) cur.closed += 1;
-
-      if (m.classificationStatus === 'done' && m.classification) {
-        cur.classified += 1;
-        cur.fitSum += m.classification.fitScore;
-        cur.fitCount += 1;
-      }
-
-      map.set(key, cur);
-    }
-
-    const items = Array.from(map.entries())
-      .map(([seller, v]) => ({
-        seller,
-        meetings: v.meetings,
-        closed: v.closed,
-        closeRatePct: pct(v.closed, v.meetings),
-        classified: v.classified,
-        avgFitScore: v.fitCount === 0 ? 0 : Math.round((v.fitSum / v.fitCount) * 10) / 10,
-      }))
-      .sort((a, b) => b.meetings - a.meetings);
-
-    return { items };
+    return {
+      items: rows.map((r) => ({
+        seller: r.seller,
+        meetings: r.meetings,
+        closed: r.closed,
+        classified: r.classified,
+        closeRatePct:
+          r.meetings === 0
+            ? 0
+            : Number(((r.closed / r.meetings) * 100).toFixed(1)),
+        avgFitScore: r.avgFitScore ? Number(r.avgFitScore.toFixed(1)) : 0,
+      })),
+    };
   }
 }
