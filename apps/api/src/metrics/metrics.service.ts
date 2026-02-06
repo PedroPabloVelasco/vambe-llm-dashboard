@@ -27,23 +27,38 @@ export class MetricsService {
     this.prisma = prisma;
   }
 
-  private buildDateFilter(filter: DateFilter) {
+  private buildDateRange(filter: DateFilter) {
     const range = asDateRange(filter);
     if (!range) return undefined;
 
-    return { createdAt: range };
+    return range;
+  }
+
+  private buildMeetingFilter(filter: DateFilter) {
+    const range = this.buildDateRange(filter);
+    if (!range) return undefined;
+    return { meetingDate: range };
+  }
+
+  private buildClassificationFilter(filter: DateFilter) {
+    const range = this.buildDateRange(filter);
+    if (!range) return undefined;
+    return { meeting: { meetingDate: range } };
   }
 
   async getSummary(filter: DateFilter = {}) {
-    const where = this.buildDateFilter(filter);
+    const meetingWhere = this.buildMeetingFilter(filter);
+    const classificationWhere = this.buildClassificationFilter(filter);
 
-    const totalMeetings = await this.prisma.meeting.count({ where });
+    const totalMeetings = await this.prisma.meeting.count({
+      where: meetingWhere,
+    });
     const closedMeetings = await this.prisma.meeting.count({
-      where: { ...where, closed: true },
+      where: { ...meetingWhere, closed: true },
     });
 
     const avgFit = await this.prisma.classification.aggregate({
-      where,
+      where: classificationWhere,
       _avg: { fitScore: true },
     });
 
@@ -65,10 +80,10 @@ export class MetricsService {
   }
 
   async getDealStageVsCloseRate(filter: DateFilter = {}) {
-    const meetingWhere = this.buildDateFilter(filter);
+    const where = this.buildClassificationFilter(filter);
 
     const rows = await this.prisma.classification.findMany({
-      where: meetingWhere,
+      where,
       select: {
         dealStage: true,
         meeting: { select: { closed: true } },
@@ -106,7 +121,7 @@ export class MetricsService {
   }
 
   async getIntentVsFitScore(filter: DateFilter = {}) {
-    const where = this.buildDateFilter(filter);
+    const where = this.buildClassificationFilter(filter);
 
     const rows = await this.prisma.classification.groupBy({
       by: ['intent'],
@@ -131,7 +146,7 @@ export class MetricsService {
     to?: string;
   }) {
     const { top, normalize, ...filter } = params;
-    const where = this.buildDateFilter(filter);
+    const where = this.buildClassificationFilter(filter);
 
     const rows = await this.prisma.classification.findMany({
       where,

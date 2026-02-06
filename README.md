@@ -46,6 +46,8 @@ LLM_CONCURRENCY=3
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
+En producción apunta `NEXT_PUBLIC_API_URL` a la URL HTTPS del backend (ej.: `https://vambe-llm-dashboard.onrender.com`).
+
 ### Base de datos en Neon
 
 1. Ve a <https://console.neon.tech/>, crea un proyecto llamado `vambe-llm-dashboard`.
@@ -60,7 +62,6 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ```bash
 # En una terminal
 pnpm --filter api exec prisma migrate deploy
-pnpm --filter api prisma db seed   # opcional si quieres datos iniciales
 
 # En terminales separadas
 pnpm --filter api start:dev
@@ -112,3 +113,8 @@ La app está pensada para desplegar ambos servicios. Para una demo rápida:
 4. Despliega el frontend en Vercel apuntando `NEXT_PUBLIC_API_URL` a la API.
 
 > Nota: si compartes un enlace público, recuerda configurar CORS en `apps/api/.env` con el dominio del frontend.
+
+### Enlaces de referencia
+
+- Backend (Render): <https://vambe-llm-dashboard.onrender.com>  
+- Frontend (Vercel): <https://vambe-llm-dashboard-web.vercel.app>
