@@ -172,14 +172,14 @@ export class MetricsService {
       }>
     >`
       SELECT
-        m.seller AS seller,
-        COUNT(m.id) AS meetings,
-        SUM(CASE WHEN m.closed = 1 THEN 1 ELSE 0 END) AS closed,
-        COUNT(c.id) AS classified,
-        AVG(c.fitScore) AS avgFitScore
-      FROM Meeting m
-      LEFT JOIN Classification c ON c.meetingId = m.id
-      GROUP BY m.seller
+        m."seller" AS seller,
+        COUNT(m."id") AS meetings,
+        SUM(CASE WHEN m."closed" THEN 1 ELSE 0 END) AS closed,
+        COUNT(c."id") AS classified,
+        AVG(c."fitScore") AS "avgFitScore"
+      FROM "Meeting" m
+      LEFT JOIN "Classification" c ON c."meetingId" = m."id"
+      GROUP BY m."seller"
     `;
 
     return {
