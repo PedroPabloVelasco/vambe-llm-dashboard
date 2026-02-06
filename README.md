@@ -2,7 +2,7 @@
 
 Monorepo que demuestra el desafío técnico de Vambe AI: ingestamos reuniones desde un CSV, invocamos un LLM para etiquetarlas y exponemos las métricas en un dashboard interactivo. Se compone de:
 
-- `apps/api`: API NestJS + Prisma + SQLite. Expone ingestión CSV, clasificación vía OpenAI y endpoints de métricas.
+- `apps/api`: API NestJS + Prisma + PostgreSQL (Neon). Expone ingestión CSV, clasificación vía OpenAI y endpoints de métricas.
 - `apps/web`: Frontend Next.js + React + Recharts. Panel con KPIs, gráficos y flujo de “Operaciones de datos”.
 - `packages/*`: Esquemas compartidos (Zod), tipos y utilidades.
 
@@ -25,7 +25,8 @@ pnpm install
 ```env
 PORT=3001
 CORS_ORIGIN=http://localhost:3000
-DATABASE_URL="file:./prisma/dev.db"
+#CORS_ORIGIN=https://vambe-llm-dashboard-web.vercel.app
+DATABASE_URL="postgresql://neondb_owner:password@ep-your-neon-host.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
@@ -34,13 +35,23 @@ LLM_CONCURRENCY=3
 ```
 
 - `OPENAI_API_KEY`: crea un API key en <https://platform.openai.com/>.
-- La base usa SQLite embebido; no requiere servicios externos.
+- `DATABASE_URL`: usa la cadena “Prisma” que entrega Neon (o tu instancia Postgres); incluye `?sslmode=require` y, si usas el pooler compartido de Neon, agrega `&channel_binding=require`.
+- CORS: mantén el primer `CORS_ORIGIN` para localhost y descomenta/ajusta la segunda línea para tu dominio de Vercel u orígenes adicionales.
 
 #### Web (`apps/web/.env`)
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
+
+### Base de datos en Neon
+
+1. Ve a <https://console.neon.tech/>, crea un proyecto llamado `vambe-llm-dashboard`.
+2. Región: **aws-us-east-1 (N. Virginia)** para estar cerca de Vercel/Render.
+3. Usa la base y usuario por defecto (`neondb`, `neondb_owner`) o crea otros si prefieres.
+4. En **Connection Details** selecciona el snippet `Prisma`, deja “Connection pooling” activado y copia la URL (termina en `?sslmode=require&channel_binding=require` cuando usas el pooler).
+5. Pegue esa URL en `DATABASE_URL` tanto en tu `.env` local como en las variables de Render.
+6. Ejecuta `pnpm --filter api prisma migrate deploy` para crear las tablas en Neon antes de correr la API.
 
 ### Primer arranque
 
@@ -93,9 +104,8 @@ El resto de la página se actualiza automáticamente cuando termina una clasific
 
 La app está pensada para desplegar ambos servicios. Para una demo rápida:
 
-1. Monta la API en Railway/Fly/Render (SQLite embebido funciona mientras haya storage persistente).
+1. Monta la API en Railway/Fly/Render apuntando a tu base Neon/PostgreSQL.
 2. Expón las variables en el entorno (incluye `OPENAI_API_KEY`).
 3. Despliega el frontend en Vercel apuntando `NEXT_PUBLIC_API_URL` a la API.
 
 > Nota: si compartes un enlace público, recuerda configurar CORS en `apps/api/.env` con el dominio del frontend.
-
