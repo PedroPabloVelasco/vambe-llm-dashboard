@@ -4,6 +4,8 @@ import { api } from '../lib/api';
 
 import DashboardClient from './ui/DashboardClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Page() {
   const [summary, dealStage, intentVsFit, painPoints, bySeller] =
     await Promise.all([

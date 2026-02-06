@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { api } from '../../lib/api';
 import ClassificationListClient from '../ui/ClassificationListClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ClassificationPage() {
   const first = await api.classificationList({ take: 10 });
 
