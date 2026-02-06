@@ -26,7 +26,8 @@ pnpm install
 PORT=3001
 CORS_ORIGIN=http://localhost:3000
 #CORS_ORIGIN=https://vambe-llm-dashboard-web.vercel.app
-DATABASE_URL="postgresql://neondb_owner:password@ep-your-neon-host.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL="postgresql://neondb_owner:password@ep-your-neon-host-pooler.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DIRECT_DATABASE_URL="postgresql://neondb_owner:password@ep-your-neon-host.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
@@ -35,7 +36,8 @@ LLM_CONCURRENCY=3
 ```
 
 - `OPENAI_API_KEY`: crea un API key en <https://platform.openai.com/>.
-- `DATABASE_URL`: usa la cadena “Prisma” que entrega Neon (o tu instancia Postgres); incluye `?sslmode=require` y, si usas el pooler compartido de Neon, agrega `&channel_binding=require`.
+- `DATABASE_URL`: usa la cadena “Prisma” que entrega Neon (o tu instancia Postgres); incluye `?sslmode=require` y, si usas el pooler compartido de Neon, agrega `&channel_binding=require`. Esta URL es la que se usa en runtime.
+- `DIRECT_DATABASE_URL`: pega la variante “Direct” (sin `-pooler`). Prisma la utiliza automáticamente para `prisma migrate deploy` y evita timeouts por advisory locks.
 - CORS: mantén el primer `CORS_ORIGIN` para localhost y descomenta/ajusta la segunda línea para tu dominio de Vercel u orígenes adicionales.
 
 #### Web (`apps/web/.env`)
@@ -49,15 +51,15 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 1. Ve a <https://console.neon.tech/>, crea un proyecto llamado `vambe-llm-dashboard`.
 2. Región: **aws-us-east-1 (N. Virginia)** para estar cerca de Vercel/Render.
 3. Usa la base y usuario por defecto (`neondb`, `neondb_owner`) o crea otros si prefieres.
-4. En **Connection Details** selecciona el snippet `Prisma`, deja “Connection pooling” activado y copia la URL (termina en `?sslmode=require&channel_binding=require` cuando usas el pooler).
-5. Pegue esa URL en `DATABASE_URL` tanto en tu `.env` local como en las variables de Render.
-6. Ejecuta `pnpm --filter api prisma migrate deploy` para crear las tablas en Neon antes de correr la API.
+4. En **Connection Details** selecciona el snippet `Prisma`, deja “Connection pooling” activado y copia la URL (termina en `?sslmode=require&channel_binding=require` cuando usas el pooler). Esa es tu `DATABASE_URL`.
+5. Desactiva “Connection pooling” para obtener la versión directa y úsala como `DIRECT_DATABASE_URL`.
+6. Ejecuta `pnpm --filter api exec prisma migrate deploy` para crear las tablas en Neon antes de correr la API.
 
 ### Primer arranque
 
 ```bash
 # En una terminal
-pnpm --filter api prisma migrate deploy
+pnpm --filter api exec prisma migrate deploy
 pnpm --filter api prisma db seed   # opcional si quieres datos iniciales
 
 # En terminales separadas
@@ -105,7 +107,8 @@ El resto de la página se actualiza automáticamente cuando termina una clasific
 La app está pensada para desplegar ambos servicios. Para una demo rápida:
 
 1. Monta la API en Railway/Fly/Render apuntando a tu base Neon/PostgreSQL.
-2. Expón las variables en el entorno (incluye `OPENAI_API_KEY`).
-3. Despliega el frontend en Vercel apuntando `NEXT_PUBLIC_API_URL` a la API.
+2. Expón las variables en el entorno (incluye `OPENAI_API_KEY`, `DATABASE_URL` con pooler y `DIRECT_DATABASE_URL` sin pooler).
+3. En el servicio de backend utiliza como Build Command `pnpm install --frozen-lockfile && pnpm --filter api build && pnpm --filter api exec prisma migrate deploy` y como Start Command `pnpm --filter api start:prod`.
+4. Despliega el frontend en Vercel apuntando `NEXT_PUBLIC_API_URL` a la API.
 
 > Nota: si compartes un enlace público, recuerda configurar CORS en `apps/api/.env` con el dominio del frontend.

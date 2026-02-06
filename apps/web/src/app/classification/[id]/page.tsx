@@ -281,19 +281,19 @@ export default async function ClassificationDetailPage({
               <h3 className="chart-card__title">BANT</h3>
               <div className="detail-grid" style={{ marginTop: '1rem' }}>
                 <div className="detail-chip">
-                  <span className="text-subtle">Presupuesto</span>
+                  <span className="text-subtle">Presupuesto: </span>
                   <strong>{mapLabel(meta?.bant?.budget, bantMap)}</strong>
                 </div>
                 <div className="detail-chip">
-                  <span className="text-subtle">Autoridad</span>
+                  <span className="text-subtle">Autoridad: </span>
                   <strong>{mapLabel(meta?.bant?.authority, bantMap)}</strong>
                 </div>
                 <div className="detail-chip">
-                  <span className="text-subtle">Tiempo</span>
+                  <span className="text-subtle">Tiempo: </span>
                   <strong>{mapLabel(meta?.bant?.timeline, bantMap)}</strong>
                 </div>
                 <div className="detail-chip">
-                  <span className="text-subtle">Necesidad</span>
+                  <span className="text-subtle">Necesidad: </span>
                   <strong>{mapLabel(meta?.bant?.need, bantMap)}</strong>
                 </div>
               </div>

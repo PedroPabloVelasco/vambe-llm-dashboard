@@ -13,7 +13,8 @@ Crea `apps/api/.env`:
 ```env
 PORT=3001
 CORS_ORIGIN=http://localhost:3000
-DATABASE_URL="postgresql://neondb_owner:password@ep-your-neon-host.aws.neon.tech/neondb?sslmode=require"
+DATABASE_URL="postgresql://neondb_owner:password@ep-your-neon-host-pooler.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DIRECT_DATABASE_URL="postgresql://neondb_owner:password@ep-your-neon-host.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 LLM_PROVIDER=openai
 OPENAI_API_KEY=TU_KEY
@@ -24,5 +25,5 @@ LLM_CONCURRENCY=3
 LLM_TIMEOUT_MS=20000
 ```
 
-- La cadena de conexión debe apuntar a tu proyecto Neon (o cualquier Postgres compatible).
-- Después de crear la base ejecuta `pnpm --filter api prisma migrate deploy` para aplicar los esquemas.
+- La cadena de conexión debe apuntar a tu proyecto Neon (o cualquier Postgres compatible). Usa `DIRECT_DATABASE_URL` para la conexión directa sin pooler; Prisma la aprovecha en las migraciones.
+- Después de crear la base ejecuta `pnpm --filter api exec prisma migrate deploy` para aplicar los esquemas.
